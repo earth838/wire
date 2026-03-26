@@ -125,6 +125,28 @@ dfs:
 
 		pv := set.For(curr.t)
 		if pv.IsNil() {
+			// Auto-bind: if curr.t is an interface, scan providers for a
+			// unique concrete type that implements it. If exactly one
+			// provider satisfies the interface, use it automatically.
+			if iface, ok := curr.t.Underlying().(*types.Interface); ok {
+				concrete, err := autoBindInterface(set, curr.t, iface)
+				if err != nil {
+					ec.add(notePosition(token.Position{}, err))
+					index.Set(curr.t, errAbort)
+					continue
+				}
+				if concrete != nil {
+					// Found exactly one match. Resolve like an explicit binding:
+					// map the interface type to the concrete type's index.
+					i := index.At(concrete)
+					if i == nil {
+						stk = append(stk, curr, frame{t: concrete, from: curr.t, up: &curr})
+						continue
+					}
+					index.Set(curr.t, i)
+					continue
+				}
+			}
 			if curr.from == nil {
 				ec.add(fmt.Errorf("no provider found for %s, output of injector", types.TypeString(curr.t, nil)))
 				index.Set(curr.t, errAbort)
@@ -519,3 +541,44 @@ func bindingConflictError(fset *token.FileSet, typ types.Type, set *ProviderSet,
 	fmt.Fprintf(sb, "previous:\n<- %s", strings.Join(prev.trace(fset, typ), "\n<- "))
 	return notePosition(fset.Position(set.Pos), errors.New(sb.String()))
 }
+
+// autoBindInterface scans the provider set for concrete types that implement
+// the given interface. It returns:
+//   - the concrete type if exactly one provider satisfies the interface
+//   - nil if no provider satisfies the interface
+//   - an error if multiple providers satisfy the interface (ambiguous)
+func autoBindInterface(set *ProviderSet, ifaceType types.Type, iface *types.Interface) (types.Type, error) {
+	var candidates []types.Type
+	set.providerMap.Iterate(func(k types.Type, v interface{}) {
+		concrete := k
+		if types.Identical(concrete, ifaceType) {
+			return
+		}
+		if types.Implements(concrete, iface) {
+			candidates = append(candidates, concrete)
+		}
+	})
+	switch len(candidates) {
+	case 0:
+		return nil, nil
+	case 1:
+		return candidates[0], nil
+	default:
+		// Sort candidates by string representation to ensure deterministic error messages.
+		sort.Slice(candidates, func(i, j int) bool {
+			return types.TypeString(candidates[i], nil) < types.TypeString(candidates[j], nil)
+		})
+		
+		var candStrings []string
+		for _, c := range candidates {
+			candStrings = append(candStrings, "  - " + types.TypeString(c, nil))
+		}
+		
+		msg := fmt.Sprintf("multiple providers satisfy %s, use wire.Bind to disambiguate:\n%s", 
+			types.TypeString(ifaceType, nil), 
+			strings.Join(candStrings, "\n"))
+			
+		return nil, errors.New(msg)
+	}
+}
+

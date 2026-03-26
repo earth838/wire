@@ -1032,12 +1032,36 @@ func processFieldsOf(fset *token.FileSet, info *types.Info, call *ast.CallExpr) 
 		return nil, notePosition(fset.Position(call.Pos()),
 			fmt.Errorf(firstArgReqFormat, types.TypeString(t, nil)))
 	}
+
+	var fields []*Field
+	if allFields(call) {
+		// Wildcard: extract all fields (respecting wire:"-" tag).
+		for i := 0; i < struc.NumFields(); i++ {
+			if isPrevented(struc.Tag(i)) {
+				continue
+			}
+			v := struc.Field(i)
+			out := []types.Type{v.Type()}
+			if isPtrToStruct {
+				out = append(out, types.NewPointer(v.Type()))
+			}
+			fields = append(fields, &Field{
+				Parent: structPtr.Elem(),
+				Name:   v.Name(),
+				Pkg:    v.Pkg(),
+				Pos:    v.Pos(),
+				Out:    out,
+			})
+		}
+		return fields, nil
+	}
+
 	if struc.NumFields() < len(call.Args)-1 {
 		return nil, notePosition(fset.Position(call.Pos()),
 			fmt.Errorf("fields number exceeds the number available in the struct which has %d fields", struc.NumFields()))
 	}
 
-	fields := make([]*Field, 0, len(call.Args)-1)
+	fields = make([]*Field, 0, len(call.Args)-1)
 	for i := 1; i < len(call.Args); i++ {
 		v, err := checkField(call.Args[i], struc)
 		if err != nil {

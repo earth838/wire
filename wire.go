@@ -173,6 +173,10 @@ type StructFields struct{}
 // to provide the types of those fields. The structType argument must be a
 // pointer to the struct or a pointer to a pointer to the struct it wishes to reference.
 //
+// As a special case, if a single name "*" is given, then all of the fields in
+// the struct will be used as providers. Fields can be prevented from being
+// extracted by using a "wire" struct tag set to "-".
+//
 // The following example would provide Foo and Bar using S.MyFoo and S.MyBar respectively:
 //
 //	type S struct {
@@ -187,6 +191,10 @@ type StructFields struct{}
 //
 //	func NewStruct() *S { /* ... */ }
 //	var Set = wire.NewSet(wire.FieldsOf(new(*S), "MyFoo", "MyBar"))
+//
+//	or to extract all fields:
+//
+//	var Set = wire.NewSet(wire.FieldsOf(new(*S), "*"))
 //
 //	If the structType argument is a pointer to a pointer to a struct, then FieldsOf
 //	additionally provides a pointer to each field type (e.g., *Foo and *Bar in the

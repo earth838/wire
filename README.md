@@ -3,10 +3,18 @@
 [![Build Status](https://github.com/google/wire/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/google/wire/actions)
 [![godoc](https://godoc.org/github.com/google/wire?status.svg)][godoc]
 
-> [!WARNING]
-> This project is no longer maintained.
->
-> If you wish to update or extend wire, please do so in a fork.
+> [!NOTE]
+> **✨ Custom Enhancements ✨**
+> 
+> This is a customized fork of Google Wire that includes two powerful productivity enhancements:
+> 
+> 1. **`wire.FieldsOf("*")` Wildcard Support:** Automatically extract all exported fields from a struct as individual providers.
+>    ```go
+>    wire.Build(wire.FieldsOf(new(*Deps), "*")) 
+>    ```
+> 2. **Auto-Bind for Interfaces:** When an interface is required, and exactly *one* concrete provider in your `wire.Build` satisfies it, Wire will now bind them automatically without needing explicit `wire.Bind(new(Interface), new(*Struct))` declarations.
+> 
+> *(These features were custom-built to support our modular architecture with minimal boilerplate)*
 
 Wire is a code generation tool that automates connecting components using
 [dependency injection][]. Dependencies between components are represented in

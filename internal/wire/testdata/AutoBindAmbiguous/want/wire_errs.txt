@@ -1,0 +1,3 @@
+inject injectedMessage: multiple providers satisfy example.com/foo.I, use wire.Bind to disambiguate:
+  - example.com/foo.S1
+  - example.com/foo.S2
